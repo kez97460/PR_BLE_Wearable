@@ -1,9 +1,10 @@
 import asyncio
-from bleak import BleakScanner
+from testlib import *
+
 
 async def main():
-    devices = await BleakScanner.discover()
-    for d in devices:
-        print(d)
+    # await BLE_connect("IN100", timeout_s=15)
+    await BLE_connect("IN100", True)
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
