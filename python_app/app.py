@@ -21,7 +21,7 @@ server = app.server
 app.config["suppress_callback_exceptions"] = True
 
 APP_PATH = str(pathlib.Path(__file__).parent.resolve())
-df = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", "ble_data.csv")))
+df = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", "ble_data.csv")), skipinitialspace=True)
 
 params = list(df)
 max_length = len(df)
@@ -30,9 +30,6 @@ suffix_row = "_row"
 suffix_button_id = "_button"
 suffix_sparkline_graph = "_sparkline_graph"
 suffix_count = "_count"
-suffix_ooc_n = "_OOC_number"
-suffix_ooc_g = "_OOC_graph"
-suffix_indicator = "_indicator"
 
 # Different tabs for Dashboard / Settings
 def build_tabs():
@@ -72,10 +69,6 @@ def init_df():
         stats = data.describe()
 
         std = stats["std"].tolist()
-        ucl = (stats["mean"] + 3 * stats["std"]).tolist()
-        lcl = (stats["mean"] - 3 * stats["std"]).tolist()
-        usl = (stats["mean"] + stats["std"]).tolist()
-        lsl = (stats["mean"] - stats["std"]).tolist()
 
         ret.update(
             {
@@ -84,29 +77,12 @@ def init_df():
                     "data": data,
                     "mean": stats["mean"].tolist(),
                     "std": std,
-                    "ucl": round(ucl, 3),
-                    "lcl": round(lcl, 3),
-                    "usl": round(usl, 3),
-                    "lsl": round(lsl, 3),
                     "min": stats["min"].tolist(),
-                    "max": stats["max"].tolist(),
-                    "ooc": populate_ooc(data, ucl, lcl),
+                    "max": stats["max"].tolist()
                 }
             }
         )
 
-    return ret
-
-# ??? OOC should be useless
-def populate_ooc(data, ucl, lcl):
-    ooc_count = 0
-    ret = []
-    for i in range(len(data)):
-        if data[i] >= ucl or data[i] <= lcl:
-            ooc_count += 1
-            ret.append(ooc_count / (i + 1))
-        else:
-            ret.append(ooc_count / (i + 1))
     return ret
 
 # Initial data (execution)
@@ -172,20 +148,6 @@ def build_tab_1():
             ],
         ),
     ]
-
-
-ud_usl_input = daq.NumericInput(
-    id="ud_usl_input", className="setting-input", size=200, max=9999999
-)
-ud_lsl_input = daq.NumericInput(
-    id="ud_lsl_input", className="setting-input", size=200, max=9999999
-)
-ud_ucl_input = daq.NumericInput(
-    id="ud_ucl_input", className="setting-input", size=200, max=9999999
-)
-ud_lcl_input = daq.NumericInput(
-    id="ud_lcl_input", className="setting-input", size=200, max=9999999
-)
 
 
 def build_value_setter_line(line_num, label, value, col3):
@@ -321,7 +283,7 @@ def generate_metric_row_helper(stopped_interval, index):
                     {
                         "data": [
                             {
-                                "x": state_dict["id"]["data"].tolist()[
+                                "x": state_dict["timestamp"]["data"].tolist()[
                                     :stopped_interval
                                 ],
                                 "y": state_dict[item]["data"][:stopped_interval],
@@ -385,6 +347,7 @@ def generate_metric_row(id, style, col1, col2, col3):
         ],
     )
 
+#---------------------------Graph panel---------------------------------
 
 def build_chart_panel():
     return html.Div(
@@ -554,9 +517,10 @@ def generate_graph(interval, specs_dict, col):
 
     return fig
 
+#-----------------------------------Metrics summary panel-----------------------
 
 def update_sparkline(interval, param):
-    x_array = state_dict["id"]["data"].tolist()
+    x_array = state_dict["timestamp"]["data"].tolist()
     y_array = state_dict[param]["data"].tolist()
 
     if interval == 0:
@@ -570,12 +534,14 @@ def update_sparkline(interval, param):
         x_new = x_array[:total_count][-1]
         y_new = y_array[:total_count][-1]
 
+    print(f"param:{param} x:{x_new}, y:{y_new}")
+
     return dict(x=[[x_new]], y=[[y_new]]), [0]
 
 
 def update_count(interval, col, data):
     if interval == 0:
-        return "0", "0.00%", 0.00001, "#92e0d3"
+        return "0"
 
     if interval > 0:
 
@@ -584,28 +550,9 @@ def update_count(interval, col, data):
         else:
             total_count = interval - 1
 
-        ooc_percentage_f = data[col]["ooc"][total_count] * 100
-        ooc_percentage_str = "%.2f" % ooc_percentage_f + "%"
+    return str(total_count + 1)
 
-        # Set maximum ooc to 15 for better grad bar display
-        if ooc_percentage_f > 15:
-            ooc_percentage_f = 15
-
-        if ooc_percentage_f == 0.0:
-            ooc_grad_val = 0.00001
-        else:
-            ooc_grad_val = float(ooc_percentage_f)
-
-        # Set indicator theme according to threshold 5%
-        if 0 <= ooc_grad_val <= 5:
-            color = "#92e0d3"
-        elif 5 < ooc_grad_val < 7:
-            color = "#f4d44d"
-        else:
-            color = "#FF0000"
-
-    return str(total_count + 1), ooc_percentage_str, ooc_grad_val, color
-
+#---------------------------------App layout and callbacks-----------------------------
 
 app.layout = html.Div(
     id="big-app-container",
@@ -697,146 +644,10 @@ def update_gauge(interval):
 
     return int(total_count)
 
-
-# ===== Callbacks to update values based on store data and dropdown selection =====
-@app.callback(
-    output=[
-        Output("value-setter-panel", "children"),
-        Output("ud_usl_input", "value"),
-        Output("ud_lsl_input", "value"),
-        Output("ud_ucl_input", "value"),
-        Output("ud_lcl_input", "value"),
-    ],
-    inputs=[Input("metric-select-dropdown", "value")],
-    state=[State("value-setter-store", "data")],
-)
-def build_value_setter_panel(dd_select, state_value):
-    return (
-        [
-            build_value_setter_line(
-                "value-setter-panel-header",
-                "Specs",
-                "Historical Value",
-                "Set new value",
-            ),
-            build_value_setter_line(
-                "value-setter-panel-usl",
-                "Upper Specification limit",
-                state_dict[dd_select]["usl"],
-                ud_usl_input,
-            ),
-            build_value_setter_line(
-                "value-setter-panel-lsl",
-                "Lower Specification limit",
-                state_dict[dd_select]["lsl"],
-                ud_lsl_input,
-            ),
-            build_value_setter_line(
-                "value-setter-panel-ucl",
-                "Upper Control limit",
-                state_dict[dd_select]["ucl"],
-                ud_ucl_input,
-            ),
-            build_value_setter_line(
-                "value-setter-panel-lcl",
-                "Lower Control limit",
-                state_dict[dd_select]["lcl"],
-                ud_lcl_input,
-            ),
-        ],
-        state_value[dd_select]["usl"],
-        state_value[dd_select]["lsl"],
-        state_value[dd_select]["ucl"],
-        state_value[dd_select]["lcl"],
-    )
-
-
-# ====== Callbacks to update stored data via click =====
-@app.callback(
-    output=Output("value-setter-store", "data"),
-    inputs=[Input("value-setter-set-btn", "n_clicks")],
-    state=[
-        State("metric-select-dropdown", "value"),
-        State("value-setter-store", "data"),
-        State("ud_usl_input", "value"),
-        State("ud_lsl_input", "value"),
-        State("ud_ucl_input", "value"),
-        State("ud_lcl_input", "value"),
-    ],
-)
-def set_value_setter_store(set_btn, param, data, usl, lsl, ucl, lcl):
-    if set_btn is None:
-        return data
-    else:
-        data[param]["usl"] = usl
-        data[param]["lsl"] = lsl
-        data[param]["ucl"] = ucl
-        data[param]["lcl"] = lcl
-
-        # Recalculate ooc in case of param updates
-        data[param]["ooc"] = populate_ooc(df[param], ucl, lcl)
-        return data
-
-
-@app.callback(
-    output=Output("value-setter-view-output", "children"),
-    inputs=[
-        Input("value-setter-view-btn", "n_clicks"),
-        Input("metric-select-dropdown", "value"),
-        Input("value-setter-store", "data"),
-    ],
-)
-def show_current_specs(n_clicks, dd_select, store_data):
-    if n_clicks > 0:
-        curr_col_data = store_data[dd_select]
-        new_df_dict = {
-            "Specs": [
-                "Upper Specification Limit",
-                "Lower Specification Limit",
-                "Upper Control Limit",
-                "Lower Control Limit",
-            ],
-            "Current Setup": [
-                curr_col_data["usl"],
-                curr_col_data["lsl"],
-                curr_col_data["ucl"],
-                curr_col_data["lcl"],
-            ],
-        }
-        new_df = pd.DataFrame.from_dict(new_df_dict)
-        return dash_table.DataTable(
-            style_header={"fontWeight": "bold", "color": "inherit"},
-            style_as_list_view=True,
-            fill_width=True,
-            style_cell_conditional=[
-                {"if": {"column_id": "Specs"}, "textAlign": "left"}
-            ],
-            style_cell={
-                "backgroundColor": "#1e2130",
-                "fontFamily": "Open Sans",
-                "padding": "0 2rem",
-                "color": "darkgray",
-                "border": "none",
-            },
-            css=[
-                {"selector": "tr:hover td", "rule": "color: #91dfd2 !important;"},
-                {"selector": "td", "rule": "border: none !important;"},
-                {
-                    "selector": ".dash-cell.focused",
-                    "rule": "background-color: #1e2130 !important;",
-                },
-                {"selector": "table", "rule": "--accent: #1e2130;"},
-                {"selector": "tr", "rule": "background-color: transparent"},
-            ],
-            data=new_df.to_dict("rows"),
-            columns=[{"id": c, "name": c} for c in ["Specs", "Current Setup"]],
-        )
-
-
 # decorator for list of output
 def create_callback(param):
     def callback(interval, stored_data):
-        count, ooc_n, ooc_g_value, indicator = update_count(
+        count = update_count(
             interval, param, stored_data
         )
         spark_line_data = update_sparkline(interval, param)
