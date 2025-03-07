@@ -6,12 +6,6 @@ Based on the "Manufacturing SPC Dashboard" sample app from [Plotly](https//plot.
 
 The sample app is under MIT license, see the [LICENSE](./LICENSE) file. 
 
-## Introduction
-`Dash-manufacture-spc-dashboard` is a dashboard for monitoring real-time process quality along manufacture production line. 
-This is a demo of Dash interactive Python framework developed by 
-
-
-
 ## Requirements
 We suggest you to create a separate virtual environment running Python 3 for this app, and install all of the required dependencies there. Run in Terminal/Command Prompt:
 
@@ -50,16 +44,16 @@ Open http://0.0.0.0:8050/ in your browser, you will see a live-updating dashboar
 
 Click on **Learn more** button to learn more about how this app works.
 
-## What does this app show
-
-Click on buttons in `Parameter` column to visualize details of trendline on the bottom panel.
-
-Click `Start` button, trends are updated every two seconds to simulate real-time measurements. The Sparkline on top panel and Control chart on bottom panel show Shewhart process control using mock data. Data falling outside of control limit are signals indicating 'Out of Control(OOC)', and will 
-trigger alerts instantly for a detailed checkup. 
-
-Operators may stop measurement by clicking `Stop` button, and edit specification parameters for selected process line(metrics) in Specification Tab.
-
 ## Resources and references
 
 * [Dash User Guide](https://dash.plot.ly/)
+
+## Known bugs (as of 2025-03-07)
+
+- The big graph does not show the last value of Vcc (even though the small one in Metrics Summary does)
+
+## Features to be added
+
+- automatic update of the app when the .csv is modified
+- BLE reception
 
