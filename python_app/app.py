@@ -64,7 +64,7 @@ def build_tabs():
         ],
     )
 
-# Initial data (to be removed ? or modified at least)
+# Initial data handling
 def init_df():
     ret = {}
     for col in list(df[1:]):
@@ -97,7 +97,7 @@ def init_df():
 
     return ret
 
-# ???
+# ??? OOC should be useless
 def populate_ooc(data, ucl, lcl):
     ooc_count = 0
     ret = []
@@ -215,7 +215,7 @@ def build_quick_stats_panel():
                             html.Tr([html.Td("Address"), html.Td("00:00:00:00:00:00")]),
                             html.Tr([html.Td("Last received"), html.Td("2025-01-01 00:00:00")])
                         ]
-                    ), # TODO : configurable name / address
+                    ), # TODO : configurable name / address, get real data
                 ],
             ),
             html.Div(
@@ -223,7 +223,7 @@ def build_quick_stats_panel():
                 children=[
                     html.P("Vcc"),
                     daq.Gauge(
-                        id="progress-gauge",
+                        id="vcc-gauge",
                         max=3.0,
                         min=0,
                         showCurrentValue=True,  # default size 200 pixel
@@ -251,7 +251,7 @@ def build_top_panel(stopped_interval):
                 id="metric-summary-session",
                 className="eight columns",
                 children=[
-                    generate_section_banner("Process Control Metrics Summary"),
+                    generate_section_banner("Metrics Summary"),
                     html.Div(
                         id="metric-div",
                         children=[
@@ -273,17 +273,14 @@ def build_top_panel(stopped_interval):
         ],
     )
 
-# Build header
+# Build header for Metrics summary
 def generate_metric_list_header():
     return generate_metric_row(
         "metric_header",
         {"height": "3rem", "margin": "1rem 0", "textAlign": "center"},
         {"id": "m_header_1", "children": html.Div("Parameter")},
         {"id": "m_header_2", "children": html.Div("Count")},
-        {"id": "m_header_3", "children": html.Div("Sparkline")},
-        {"id": "m_header_4", "children": html.Div("OOC%")},
-        {"id": "m_header_5", "children": html.Div("%OOC")},
-        {"id": "m_header_6", "children": "Pass/Fail"},
+        {"id": "m_header_3", "children": html.Div("Sparkline")}
     )
 
 
@@ -294,9 +291,6 @@ def generate_metric_row_helper(stopped_interval, index):
     button_id = item + suffix_button_id
     sparkline_graph_id = item + suffix_sparkline_graph
     count_id = item + suffix_count
-    ooc_percentage_id = item + suffix_ooc_n
-    ooc_graph_id = item + suffix_ooc_g
-    indicator_id = item + suffix_indicator
 
     return generate_metric_row(
         div_id,
@@ -358,33 +352,10 @@ def generate_metric_row_helper(stopped_interval, index):
                 ),
             ),
         },
-        {"id": ooc_percentage_id, "children": "0.00%"},
-        {
-            "id": ooc_graph_id + "_container",
-            "children": daq.GraduatedBar(
-                id=ooc_graph_id,
-                color={
-                    "ranges": {
-                        "#92e0d3": [0, 3],
-                        "#f4d44d ": [3, 7],
-                        "#f45060": [7, 15],
-                    }
-                },
-                showCurrentValue=False,
-                max=15,
-                value=0,
-            ),
-        },
-        {
-            "id": item + "_pf",
-            "children": daq.Indicator(
-                id=indicator_id, value=True, color="#91dfd2", size=12
-            ),
-        },
     )
 
 
-def generate_metric_row(id, style, col1, col2, col3, col4, col5, col6):
+def generate_metric_row(id, style, col1, col2, col3):
     if style is None:
         style = {"height": "8rem", "width": "100%"}
 
@@ -410,24 +381,6 @@ def generate_metric_row(id, style, col1, col2, col3, col4, col5, col6):
                 style={"height": "100%"},
                 className="four columns",
                 children=col3["children"],
-            ),
-            html.Div(
-                id=col4["id"],
-                style={},
-                className="one column",
-                children=col4["children"],
-            ),
-            html.Div(
-                id=col5["id"],
-                style={"height": "100%", "margin-top": "5rem"},
-                className="three columns",
-                children=col5["children"],
-            ),
-            html.Div(
-                id=col6["id"],
-                style={"display": "flex", "justifyContent": "center"},
-                className="one column",
-                children=col6["children"],
             ),
         ],
     )
@@ -733,7 +686,7 @@ def stop_production(n_clicks, current):
 
 # ======= update progress gauge =========
 @app.callback(
-    output=Output("progress-gauge", "value"),
+    output=Output("vcc-gauge", "value"),
     inputs=[Input("interval-component", "n_intervals")],
 )
 def update_gauge(interval):
@@ -887,7 +840,7 @@ def create_callback(param):
             interval, param, stored_data
         )
         spark_line_data = update_sparkline(interval, param)
-        return count, spark_line_data, ooc_n, ooc_g_value, indicator
+        return count, spark_line_data   
 
     return callback
 
@@ -898,9 +851,6 @@ for param in params[1:]:
         output=[
             Output(param + suffix_count, "children"),
             Output(param + suffix_sparkline_graph, "extendData"),
-            Output(param + suffix_ooc_n, "children"),
-            Output(param + suffix_ooc_g, "value"),
-            Output(param + suffix_indicator, "color"),
         ],
         inputs=[Input("interval-component", "n_intervals")],
         state=[State("value-setter-store", "data")],
