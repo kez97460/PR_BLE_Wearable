@@ -95,6 +95,7 @@ def init_value_setter_store():
     return state_dict
 
 
+# Settings tab
 def build_tab_1():
     return [
         # Manually select metrics
@@ -149,20 +150,11 @@ def build_tab_1():
         ),
     ]
 
-
-def build_value_setter_line(line_num, label, value, col3):
-    return html.Div(
-        id=line_num,
-        children=[
-            html.Label(label, className="four columns"),
-            html.Label(value, className="four columns"),
-            html.Div(col3, className="four columns"),
-        ],
-        className="row",
-    )
-
 # Left side of the data page
 def build_quick_stats_panel():
+
+    last_timestamp = datetime.fromtimestamp(state_dict["timestamp"]["data"].tolist()[-1])
+
     return html.Div(
         id="quick-stats",
         className="row",
@@ -175,7 +167,7 @@ def build_quick_stats_panel():
                         [
                             html.Tr([html.Td("Name"), html.Td("IN100")]),
                             html.Tr([html.Td("Address"), html.Td("00:00:00:00:00:00")]),
-                            html.Tr([html.Td("Last received"), html.Td("2025-01-01 00:00:00")])
+                            html.Tr([html.Td("Last received"), html.Td(str(datetime.date(last_timestamp)) + " " + str(datetime.time(last_timestamp)))])
                         ]
                     ), # TODO : configurable name / address, get real data
                 ],
@@ -203,7 +195,7 @@ def build_quick_stats_panel():
 def generate_section_banner(title):
     return html.Div(className="section-banner", children=title)
 
-def build_top_panel(stopped_interval):
+def build_top_panel(stop_interval):
     return html.Div(
         id="top-section-container",
         className="row",
@@ -221,11 +213,11 @@ def build_top_panel(stopped_interval):
                             html.Div(
                                 id="metric-rows",
                                 children=[
-                                    generate_metric_row_helper(stopped_interval, 1),
-                                    generate_metric_row_helper(stopped_interval, 2),
-                                    generate_metric_row_helper(stopped_interval, 3),
-                                    generate_metric_row_helper(stopped_interval, 4),
-                                    generate_metric_row_helper(stopped_interval, 5),
+                                    generate_metric_row_helper(stop_interval, 1),
+                                    generate_metric_row_helper(stop_interval, 2),
+                                    generate_metric_row_helper(stop_interval, 3),
+                                    generate_metric_row_helper(stop_interval, 4),
+                                    generate_metric_row_helper(stop_interval, 5),
                                 ],
                             ),
                         ],
@@ -246,7 +238,7 @@ def generate_metric_list_header():
     )
 
 
-def generate_metric_row_helper(stopped_interval, index):
+def generate_metric_row_helper(stop_interval, index):
     item = params[index]
 
     div_id = item + suffix_row
@@ -284,9 +276,9 @@ def generate_metric_row_helper(stopped_interval, index):
                         "data": [
                             {
                                 "x": state_dict["timestamp"]["data"].tolist()[
-                                    :stopped_interval
+                                    :stop_interval
                                 ],
-                                "y": state_dict[item]["data"][:stopped_interval],
+                                "y": state_dict[item]["data"][:stop_interval],
                                 "mode": "lines+markers",
                                 "name": item,
                                 "line": {"color": "#f4d44d"},
@@ -397,12 +389,7 @@ def generate_graph(interval, specs_dict, col):
     x_array = timestamps
     y_array = col_data.tolist()
 
-    total_count = 0
-
-    if interval > max_length:
-        total_count = max_length - 1
-    elif interval > 0:
-        total_count = interval
+    total_count = -1
 
     # red points on values outside expected range
     unexpected_values_trace = {
@@ -421,8 +408,8 @@ def generate_graph(interval, specs_dict, col):
     fig = {
         "data": [
             {
-                "x": x_array[:total_count],
-                "y": y_array[:total_count],
+                "x": x_array,
+                "y": y_array,
                 "mode": "lines+markers",
                 "name": col,
                 "line": {"color": "#f4d44d"},
@@ -534,8 +521,6 @@ def update_sparkline(interval, param):
         x_new = x_array[:total_count][-1]
         y_new = y_array[:total_count][-1]
 
-    print(f"param:{param} x:{x_new}, y:{y_new}")
-
     return dict(x=[[x_new]], y=[[y_new]]), [0]
 
 
@@ -576,15 +561,15 @@ app.layout = html.Div(
     ],
 )
 
-
+# handle switching between tabs / top level
 @app.callback(
     [Output("app-content", "children"), Output("interval-component", "n_intervals")],
     [Input("app-tabs", "value")],
     [State("n-interval-stage", "data")],
 )
-def render_tab_content(tab_switch, stopped_interval):
+def render_tab_content(tab_switch, stop_interval):
     if tab_switch == "tab1":
-        return build_tab_1(), stopped_interval
+        return build_tab_1(), stop_interval
     return (
         html.Div(
             id="status-container",
@@ -592,11 +577,11 @@ def render_tab_content(tab_switch, stopped_interval):
                 build_quick_stats_panel(),
                 html.Div(
                     id="graphs-container",
-                    children=[build_top_panel(stopped_interval), build_chart_panel()],
+                    children=[build_top_panel(stop_interval), build_chart_panel()],
                 ),
             ],
         ),
-        stopped_interval,
+        stop_interval,
     )
 
 
@@ -633,16 +618,23 @@ def stop_production(n_clicks, current):
 
 # ======= update progress gauge =========
 @app.callback(
-    output=Output("vcc-gauge", "value"),
+    output=[Output("vcc-gauge", "value"), Output("vcc-gauge", "color")],
     inputs=[Input("interval-component", "n_intervals")],
 )
 def update_gauge(interval):
-    if interval < max_length:
-        total_count = interval
-    else:
-        total_count = max_length
+    x_array = state_dict["vcc_V"]["data"].tolist()
+    if x_array:
+        val = x_array[-1]
+        if val > 2 : 
+            color = "green"
+        elif val > 1.2 :
+            color = "yellow"
+        else : 
+            color = "red"
 
-    return int(total_count)
+        return val, color  # Return the last value
+
+    return 0, "red"  # Default value if state_dict is missing or empty
 
 # decorator for list of output
 def create_callback(param):
