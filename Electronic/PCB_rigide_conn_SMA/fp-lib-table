@@ -1,0 +1,5 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "IN100")(type "KiCad")(uri "${KIPRJMOD}/Component_Library/Footprint/IN100.pretty")(options "")(descr ""))
+  (lib (name "BMA400")(type "KiCad")(uri "${KIPRJMOD}/Component_Library/Footprint/BMA400.pretty")(options "")(descr ""))
+)
