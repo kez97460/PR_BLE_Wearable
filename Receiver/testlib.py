@@ -28,6 +28,7 @@ async def BLE_connect(device_name : str, print_results : bool = False) :
     def detectionCallback(device : BLEDevice, advertising_data : AdvertisementData) :
         if (device.name != device_name) :
             return
+        
         data = advertising_data.manufacturer_data[0x0505]
         if (print_results) :
             print("---Data BEGIN---\n", advertising_data.manufacturer_data, "\n---Data END---")
