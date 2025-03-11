@@ -17,6 +17,9 @@ import threading
 import IN100_ble
 from time import sleep
 
+## --Config--
+DEVICE_NAME = "IN100"
+
 #--------------------------------------------------------------------
 # Running the server and BLE
 #--------------------------------------------------------------------
@@ -24,15 +27,26 @@ from time import sleep
 def run_server():
     app.run_server(debug=True, port=8050, use_reloader=False)
 
-def start_BLE():
-    asyncio.run(IN100_ble.IN100_connect("IN100"))
+def start_BLE(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(IN100_ble.IN100_connect(DEVICE_NAME))
+
+device_address = ""
 
 if __name__ == "__main__":
-    dash_thread = threading.Thread(target=run_server, daemon=True)
-    ble_thread = threading.Thread(target=start_BLE, daemon=True)
 
+    ble_loop = asyncio.new_event_loop()
+    ble_thread = threading.Thread(target=start_BLE, args=(ble_loop,), daemon=True)
     ble_thread.start()
-    sleep(10) # wait for the .csv to be created...
+
+    dash_thread = threading.Thread(target=run_server, daemon=True)
+    
+    # Wait for the BLE connection to initialize
+    APP_PATH = str(pathlib.Path(__file__).parent.resolve())
+    date = datetime.date(datetime.today())
+    while not os.path.exists(os.path.join(APP_PATH, os.path.join("data", f"ble_data_{date}.csv"))):
+        print("Waiting for CSV to be created...")
+        sleep(1)
 
     # MAIN PROGRAM CONTINUES NEAR THE END OF THE FILE
 
@@ -195,7 +209,7 @@ def build_quick_stats_panel():
                     html.Table(
                         [
                             html.Tr([html.Td("Name"), html.Td("IN100")]),
-                            html.Tr([html.Td("Address"), html.Td("00:00:00:00:00:00")]),
+                            html.Tr([html.Td("Address"), html.Td(device_address)]),
                             html.Tr([html.Td("Last received"), html.Td(str(datetime.date(last_timestamp)) + " " + str(datetime.time(last_timestamp)))])
                         ], 
                         id="device-info-table"
@@ -619,7 +633,7 @@ def update_tables(n_intervals):
 
     new_table = [
         html.Tr([html.Td("Name"), html.Td("IN100")]),
-        html.Tr([html.Td("Address"), html.Td("00:00:00:00:00:01")]),
+        html.Tr([html.Td("Address"), html.Td(device_address)]),
         html.Tr([html.Td("Last received"), html.Td(str(datetime.date(last_timestamp)) + " " + str(datetime.time(last_timestamp)))]),
     ]
 
