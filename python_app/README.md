@@ -4,7 +4,7 @@ Based on the "Manufacturing SPC Dashboard" sample app from [Plotly](https//plot.
 
 ## License 
 
-The sample app is under MIT license, see the [LICENSE](./LICENSE) file. 
+The sample app is under MIT license, see the [LICENSE](./template_info/LICENSE) file. This modified version is under the same license, which you can read [here](../LICENSE)
 
 ## Requirements
 We suggest you to create a separate virtual environment running Python 3 for this app, and install all of the required dependencies there. Run in Terminal/Command Prompt:
@@ -50,10 +50,4 @@ Click on **Learn more** button to learn more about how this app works.
 
 ## Known bugs (as of 2025-03-07)
 
-- The big graph does not show the last value of Vcc (even though the small one in Metrics Summary does)
-
-## Features to be added
-
-- automatic update of the app when the .csv is modified
-- BLE reception
-
+- The sparkline graphs do not update automatically

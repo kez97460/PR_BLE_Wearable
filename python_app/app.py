@@ -12,6 +12,46 @@ import dash_daq as daq
 
 import pandas as pd
 
+import asyncio
+import threading
+import IN100_ble
+from time import sleep
+
+## --Config--
+DEVICE_NAME = "IN100"
+
+#--------------------------------------------------------------------
+# Running the server and BLE
+#--------------------------------------------------------------------
+
+def run_server():
+    app.run_server(debug=True, port=8050, use_reloader=False)
+
+def start_BLE(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(IN100_ble.IN100_connect(DEVICE_NAME))
+
+device_address = ""
+
+if __name__ == "__main__":
+
+    ble_loop = asyncio.new_event_loop()
+    ble_thread = threading.Thread(target=start_BLE, args=(ble_loop,), daemon=True)
+    ble_thread.start()
+
+    dash_thread = threading.Thread(target=run_server, daemon=True)
+    
+    # Wait for the BLE connection to initialize
+    APP_PATH = str(pathlib.Path(__file__).parent.resolve())
+    date = datetime.date(datetime.today())
+    while not os.path.exists(os.path.join(APP_PATH, os.path.join("data", f"ble_data_{date}.csv"))):
+        print("Waiting for CSV to be created...")
+        sleep(1)
+
+    # MAIN PROGRAM CONTINUES NEAR THE END OF THE FILE
+
+#---------------Other stuff------------------------------------
+
 app = dash.Dash(
     __name__,
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
@@ -20,9 +60,12 @@ app.title = "IN100 BLE Beacon Data"
 server = app.server
 app.config["suppress_callback_exceptions"] = True
 
-APP_PATH = str(pathlib.Path(__file__).parent.resolve())
-df = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", "ble_data.csv")), skipinitialspace=True)
+def read_data(date = datetime.date(datetime.today())) :
+    APP_PATH = str(pathlib.Path(__file__).parent.resolve())
+    df = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", f"ble_data_{date}.csv")), skipinitialspace=True)
+    return df
 
+df = read_data()
 params = list(df)
 max_length = len(df)
 
@@ -166,9 +209,10 @@ def build_quick_stats_panel():
                     html.Table(
                         [
                             html.Tr([html.Td("Name"), html.Td("IN100")]),
-                            html.Tr([html.Td("Address"), html.Td("00:00:00:00:00:00")]),
+                            html.Tr([html.Td("Address"), html.Td(device_address)]),
                             html.Tr([html.Td("Last received"), html.Td(str(datetime.date(last_timestamp)) + " " + str(datetime.time(last_timestamp)))])
-                        ]
+                        ], 
+                        id="device-info-table"
                     ), # TODO : configurable name / address, get real data
                 ],
             ),
@@ -218,6 +262,7 @@ def build_top_panel(stop_interval):
                                     generate_metric_row_helper(stop_interval, 3),
                                     generate_metric_row_helper(stop_interval, 4),
                                     generate_metric_row_helper(stop_interval, 5),
+                                    generate_metric_row_helper(stop_interval, 6),
                                 ],
                             ),
                         ],
@@ -275,11 +320,9 @@ def generate_metric_row_helper(stop_interval, index):
                     {
                         "data": [
                             {
-                                "x": state_dict["timestamp"]["data"].tolist()[
-                                    :stop_interval
-                                ],
+                                "x": state_dict["timestamp"]["data"].tolist()[:stop_interval],
                                 "y": state_dict[item]["data"][:stop_interval],
-                                "mode": "lines+markers",
+                                "mode": "lines",
                                 "name": item,
                                 "line": {"color": "#f4d44d"},
                             }
@@ -379,17 +422,19 @@ def build_chart_panel():
  # TODO : configurable graph to show either Vcc or acc
 def generate_graph(interval, specs_dict, col):
     stats = state_dict[col]
-    col_data = stats["data"]
-    max_accepted_value = 3.0 
-    min_accepted_value = 1.1
+    col_data = stats["data"].tolist()
+    if (col == 1) :
+        max_accepted_value = 3.0 
+        min_accepted_value = 1.1
+    else : 
+        max_accepted_value = max(col_data) + 1
+        min_accepted_value = min(col_data) - 1
 
     # Get timestamps
     timestamps = [datetime.fromtimestamp(t) for t in state_dict["timestamp"]["data"].tolist()]
 
     x_array = timestamps
-    y_array = col_data.tolist()
-
-    total_count = -1
+    y_array = col_data
 
     # red points on values outside expected range
     unexpected_values_trace = {
@@ -400,7 +445,7 @@ def generate_graph(interval, specs_dict, col):
         "marker": dict(color="rgba(210, 77, 87, 0.7)", symbol="square", size=11),
     }
 
-    for index, data in enumerate(y_array[:total_count]):
+    for index, data in enumerate(y_array):
         if data >= max_accepted_value or data <= min_accepted_value:
             unexpected_values_trace["x"].append(index + 1)
             unexpected_values_trace["y"].append(data)
@@ -444,48 +489,6 @@ def generate_graph(interval, specs_dict, col):
             "autorange": True,
             "titlefont": {"color": "darkgray"},
         },
-        annotations=[
-            {
-                "x": x_array[0],
-                "y": min_accepted_value,
-                "xref": "paper",
-                "yref": "y",
-                "text": "min:" + str(round(min_accepted_value, 3)),
-                "showarrow": False,
-                "font": {"color": "white"},
-            },
-            {
-                "x": x_array[0],
-                "y": max_accepted_value,
-                "xref": "paper",
-                "yref": "y",
-                "text": "max: " + str(round(max_accepted_value, 3)),
-                "showarrow": False,
-                "font": {"color": "white"},
-            },
-        ],
-        shapes=[
-            {
-                "type": "line",
-                "xref": "x",
-                "yref": "y",
-                "x0": x_array[0],
-                "y0": max_accepted_value,
-                "x1": x_array[-1],
-                "y1": max_accepted_value,
-                "line": {"color": "rgb(255,127,80)", "width": 1, "dash": "dot"},
-            },
-            {
-                "type": "line",
-                "xref": "x",
-                "yref": "y",
-                "x0": x_array[0],
-                "y0": min_accepted_value,
-                "x1": x_array[-1],
-                "y1": min_accepted_value,
-                "line": {"color": "rgb(255,127,80)", "width": 1, "dash": "dot"},
-            },
-        ],
         xaxis2={
             "anchor": "free",
             "title": "Count",
@@ -514,12 +517,8 @@ def update_sparkline(interval, param):
         x_new = y_new = None
 
     else:
-        if interval >= max_length:
-            total_count = max_length
-        else:
-            total_count = interval
-        x_new = x_array[:total_count][-1]
-        y_new = y_array[:total_count][-1]
+        x_new = x_array[:][-1]
+        y_new = y_array[:][-1]
 
     return dict(x=[[x_new]], y=[[y_new]]), [0]
 
@@ -528,12 +527,7 @@ def update_count(interval, col, data):
     if interval == 0:
         return "0"
 
-    if interval > 0:
-
-        if interval >= max_length:
-            total_count = max_length - 1
-        else:
-            total_count = interval - 1
+    total_count = len(state_dict[col]["data"].tolist())
 
     return str(total_count + 1)
 
@@ -544,8 +538,8 @@ app.layout = html.Div(
     children=[
         dcc.Interval(
             id="interval-component",
-            interval=2 * 1000,  # in milliseconds
-            n_intervals=50,  # start at batch 50
+            interval=5000,  # in milliseconds
+            n_intervals=len(state_dict["timestamp"]["data"].tolist()),
             disabled=True,
         ),
         html.Div(
@@ -557,7 +551,7 @@ app.layout = html.Div(
             ],
         ),
         dcc.Store(id="value-setter-store", data=init_value_setter_store()),
-        dcc.Store(id="n-interval-stage", data=50)
+        dcc.Store(id="n-interval-stage", data=len(state_dict["timestamp"]["data"].tolist()))
     ],
 )
 
@@ -583,25 +577,6 @@ def render_tab_content(tab_switch, stop_interval):
         ),
         stop_interval,
     )
-
-
-# Update interval
-@app.callback(
-    Output("n-interval-stage", "data"),
-    [Input("app-tabs", "value")],
-    [
-        State("interval-component", "n_intervals"),
-        State("interval-component", "disabled"),
-        State("n-interval-stage", "data"),
-    ],
-)
-def update_interval_state(tab_switch, cur_interval, disabled, cur_stage):
-    if disabled:
-        return cur_interval
-
-    if tab_switch == "tab1":
-        return cur_interval
-    return cur_stage
 
 
 # Callbacks for stopping interval update
@@ -635,6 +610,34 @@ def update_gauge(interval):
         return val, color  # Return the last value
 
     return 0, "red"  # Default value if state_dict is missing or empty
+
+# Callback to reload the CSV file dynamically and all shown data
+@app.callback(
+    Output("value-setter-store", "data"),
+    Output("device-info-table", "children"),
+    Output("n-interval-stage", "data"),
+    Input("interval-component", "n_intervals"),
+    prevent_initial_call=True
+)
+def update_tables(n_intervals):
+    global df, params, max_length, state_dict
+    print("Updating DB")
+
+    df = read_data()
+    params = list(df)
+    max_length = len(df)
+    state_dict = init_df()
+
+    last_timestamp = datetime.fromtimestamp(int(state_dict["timestamp"]["data"].tolist()[-1]))
+    n_interval_stage_value = len(state_dict["timestamp"]["data"].tolist())
+
+    new_table = [
+        html.Tr([html.Td("Name"), html.Td("IN100")]),
+        html.Tr([html.Td("Address"), html.Td(device_address)]),
+        html.Tr([html.Td("Last received"), html.Td(str(datetime.date(last_timestamp)) + " " + str(datetime.time(last_timestamp)))]),
+    ]
+
+    return init_value_setter_store(), new_table, n_interval_stage_value
 
 # decorator for list of output
 def create_callback(param):
@@ -698,6 +701,13 @@ def update_control_chart(interval, n1, n2, n3, n4, n5, data, cur_fig):
             curr_id = cur_fig["data"][0]["name"]
             return generate_graph(interval, data, curr_id)
 
-# Running the server
+#--------------------------------------------------------------------
+# Main program part 2
+#--------------------------------------------------------------------
+
 if __name__ == "__main__":
-    app.run_server(debug=True, port=8050)
+    dash_thread.start()
+
+    # Keep the main thread alive
+    ble_thread.join()
+    dash_thread.join()
