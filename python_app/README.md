@@ -15,7 +15,7 @@ The `IN100_ble.py` file contains all the code handling reading the data sent by 
 The `IN100_writePayloadToCSV` function can be modified, as it is responsible for the formatting of the data. The lines 
 where it can be modified are shown by comments. 
 
-Important : if the number of columns is modified, the `build_top_panel(stop_interval)` function in `app.py` (again, follow the instructions in the comments) 
+Important : if the number of columns is modified, the `build_top_panel(stop_interval)` function in `app.py` should also be modified (again, follow the instructions in the comments) 
 
 ## License 
 
