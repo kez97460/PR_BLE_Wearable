@@ -256,6 +256,9 @@ def build_top_panel(stop_interval):
                             generate_metric_list_header(),
                             html.Div(
                                 id="metric-rows",
+                                #----------MODIFY HERE TO CHANGE THE NUMBER OF COLUMNS---------
+                                # There should be a call to generate_metric_row_helper() for each column in the .csv
+                                # column 0 is id and should be the only one with no call (you can still add it if you want)
                                 children=[
                                     generate_metric_row_helper(stop_interval, 1),
                                     generate_metric_row_helper(stop_interval, 2),

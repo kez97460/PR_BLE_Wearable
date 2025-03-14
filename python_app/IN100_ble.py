@@ -33,24 +33,30 @@ def IN100_writePayloadToCSV(advertising_data : AdvertisementData, file_path : st
     """
     Decodes a BLE payload and generates a string to be written into a .csv containing the data. 
     Returns the strings and writes it in the given file (if file_path == "", will not write to the file)
+    The headers of the csv file (column names) are in the CSV_HEADERS global variable.
     """
+
+    # Get the specific data we need
     data = advertising_data.manufacturer_data[0x0505]
     rssi = advertising_data.rssi
 
-    id : int = count_lines(file_path)
+    # Extract data for each column
+    id : int = count_lines(file_path) # DO NOT REMOVE THIS ONE. Should always be the first column, named id.
     timestamp : int = time.time()
     vcc_V : float = Vcc_val_to_V(data[0])
     acc_x : int = data[1] * 256 + data[2]
     acc_y : int = data[3] * 256 + data[4]
     acc_z : int = data[5] * 256 + data[6]
 
+    # Write the data in a csv format. 
     formatted_data = f"{id}, {timestamp}, {rssi}, {vcc_V}, {acc_x}, {acc_y}, {acc_z}\n"
+
+    #--------------DO NOT MODIFY BELOW THIS--------------------------
 
     if (file_path == "" or file_path == None) :
         return formatted_data
 
     with open(file_path, "+a") as f :
-        # Add table headers if needed
         if (id == 0) :
             id = 1
             f.write(CSV_HEADERS)
@@ -69,7 +75,6 @@ async def IN100_connect(device_name : str, print_results : bool = False) :
         
         if (print_results) :
             print("---Data BEGIN---\n", advertising_data.manufacturer_data, "\n---Data END---")
-            print(f"Vcc = {Vcc_val_to_V(advertising_data.manufacturer_data[0])}")
 
         date = datetime.date(datetime.today())
         APP_PATH = str(pathlib.Path(__file__).parent.resolve())
