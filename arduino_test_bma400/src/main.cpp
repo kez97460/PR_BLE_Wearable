@@ -53,6 +53,7 @@ void loop()
 
     in100.i2c_write(0x19);
     in100.i2c_write(0x2);
+
     in100.delay_command(1000);
     uint8_t *x_data = in100.i2c_write_stop_read(0x4, 2);
     uint8_t *y_data = in100.i2c_write_stop_read(0x6, 2);
@@ -62,7 +63,10 @@ void loop()
     int12_t y_val = convertTo12Bit(y_data[1] * 256 + y_data[0]);
     int12_t z_val = convertTo12Bit(z_data[1] * 256 + z_data[0]);
 
+    in100.i2c_write(0x19);
+    in100.i2c_write(0x0);
+
     Serial.printf("x_val : [%d], y_val : [%d], z_val : [%d]\n", x_val, y_val, z_val);
 
-    delay(1000);
+    delay(200);
 } 
