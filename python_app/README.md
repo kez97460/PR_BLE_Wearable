@@ -2,9 +2,17 @@
 
 ## Usage
 
-This folder contains a relatively small, easy to use graphical interface that plots the data received from the IN100.
+This folder contains a relatively small, easy to use graphical interface that plots the data received from the IN100. The data is first stored into a csv file, then plotted by the app. 
 
 The web app is based on the "Manufacturing SPC Dashboard" sample app from [Plotly](https//plot.ly/).
+
+This app can plot any of the columns of the associated csv file. To show a detailed graph of any of them, follow the image below : 
+
+![image](./assets/app_guide.png)
+
+You can show the exact measurements for any point of the graph by simply hovering it with the mouse cursor : 
+
+![image](./assets/app_graph_value.png)
 
 ## Modifying the code 
 

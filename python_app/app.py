@@ -46,6 +46,8 @@ if __name__ == "__main__":
     date = datetime.date(datetime.today())
     while not os.path.exists(os.path.join(APP_PATH, os.path.join("data", f"ble_data_{date}.csv"))):
         print("Waiting for CSV to be created...")
+        print("Try connecting a beacon")
+
         sleep(1)
 
     # MAIN PROGRAM CONTINUES NEAR THE END OF THE FILE
@@ -422,7 +424,6 @@ def build_chart_panel():
         ],
     )
 
- # TODO : configurable graph to show either Vcc or acc
 def generate_graph(interval, specs_dict, col):
     stats = state_dict[col]
     col_data = stats["data"].tolist()

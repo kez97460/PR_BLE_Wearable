@@ -44,9 +44,9 @@ def IN100_writePayloadToCSV(advertising_data : AdvertisementData, file_path : st
     id : int = count_lines(file_path) # DO NOT REMOVE THIS ONE. Should always be the first column, named id.
     timestamp : int = time.time()
     vcc_V : float = Vcc_val_to_V(data[0])
-    acc_x : int = data[1] * 256 + data[2]
-    acc_y : int = data[3] * 256 + data[4]
-    acc_z : int = data[5] * 256 + data[6]
+    acc_x : int = data[2] * 256 + data[1]
+    acc_y : int = data[4] * 256 + data[3]
+    acc_z : int = data[6] * 256 + data[5]
 
     # Write the data in a csv format. 
     formatted_data = f"{id}, {timestamp}, {rssi}, {vcc_V}, {acc_x}, {acc_y}, {acc_z}\n"
