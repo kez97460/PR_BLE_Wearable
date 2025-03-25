@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "IN100-Q1-R-RC1I")(type "KiCad")(uri "${KIPRJMOD}/Component_Library/Symbol/IN100-Q1-R-RC1I.kicad_sym")(options "")(descr ""))
+  (lib (name "BMA400")(type "KiCad")(uri "${KIPRJMOD}/Component_Library/Symbol/BMA400.kicad_sym")(options "")(descr ""))
+  (lib (name "IN100_homemade")(type "KiCad")(uri "${KIPRJMOD}/Component_Library/Symbol/IN100_homemade.kicad_sym")(options "")(descr ""))
+)
