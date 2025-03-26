@@ -24,6 +24,16 @@ def create_empty_csv(file_path):
     if (not os.path.exists(file_path)) :
         with open(file_path, "w+") as f:
             f.write(CSV_HEADERS)
+
+def get_12bitInt(MSB, LSB) -> int:
+    value = ((MSB << 8) | (LSB)) & 0xFFF  # Extract 12 bits
+
+    # Check if the number is negative (if bit 11 is set)
+    if value & 0x800:  # 0x800 = 0b100000000000 (sign bit is set)
+        value -= 0x1000  # Convert to negative using two's complement
+
+    return value
+
     
 async def IN100_getAddress(device_name : str, print_results : bool = False) -> str : 
     device : BLEDevice= BleakScanner.find_device_by_name(device_name)
@@ -43,10 +53,10 @@ def IN100_writePayloadToCSV(advertising_data : AdvertisementData, file_path : st
     # Extract data for each column
     id : int = count_lines(file_path) # DO NOT REMOVE THIS ONE. Should always be the first column, named id.
     timestamp : int = time.time()
-    vcc_V : float = Vcc_val_to_V(data[0])
-    acc_x : int = data[2] * 256 + data[1]
-    acc_y : int = data[4] * 256 + data[3]
-    acc_z : int = data[6] * 256 + data[5]
+    vcc_V : float = Vcc_val_to_V(data[0]) # TODO: adapt data values : 12 bit int.
+    acc_x : int = get_12bitInt(data[2], data[1])
+    acc_y : int = get_12bitInt(data[4], data[3])
+    acc_z : int = get_12bitInt(data[6], data[5])
 
     # Write the data in a csv format. 
     formatted_data = f"{id}, {timestamp}, {rssi}, {vcc_V}, {acc_x}, {acc_y}, {acc_z}\n"
